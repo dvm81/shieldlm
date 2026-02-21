@@ -56,3 +56,7 @@
 * **Simplicity First**: Make every change as simple as possible. Impact minimal code.
 * **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
 * **Minimal Impact**: Changes should only touch what’s necessary. Avoid introducing bugs.
+
+## Git commits
+- Do NOT include any Claude/Anthropic attribution in commit messages (e.g., "Claude Code", "Generated with...", "Co-Authored-By: Claude", links to claude.ai/code).
+- Keep commits attribution-neutral and follow the repo's normal commit format.

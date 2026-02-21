@@ -92,24 +92,41 @@ class DeepsetLoader(BaseLoader):
 
 
 class HarelixLoader(BaseLoader):
-    """Load Harelix/Prompt-Injection-Mixed-Techniques-2024."""
+    """Load Harelix/Prompt-Injection-Mixed-Techniques-2024.
+
+    Original dataset was deleted from HuggingFace. We recover ~987 rows
+    (84% of original) from ahsanayub/malicious-prompts which includes
+    Harelix as one of its 6 sources. Binary labels only (original 3-class
+    labels are lost).
+    """
     name = "harelix"
 
+    def __init__(self, ahsanayub_path: str = "./data/raw/ahsanayub-malicious-prompts"):
+        self.data_path = Path(ahsanayub_path)
+
     def load(self) -> list[Record]:
-        from datasets import load_dataset
-        ds = load_dataset("Harelix/Prompt-Injection-Mixed-Techniques-2024", split="train")
         records = []
-        for i, row in enumerate(ds):
-            is_attack = int(row["label"])
-            records.append(Record(
-                id=self._make_id("harelix", i, row["text"]),
-                text=row["text"],
-                label_binary=is_attack,
-                label_category="direct_injection" if is_attack else "benign",
-                source="harelix/mixed-techniques-2024",
-                metadata={"original_label": row["label"]},
-            ))
-        log.info(f"  Harelix: {len(records)} records")
+        for csv_file in ["train.csv", "test.csv"]:
+            filepath = self.data_path / csv_file
+            if not filepath.exists():
+                log.warning(f"  Harelix: {filepath} not found, skipping")
+                continue
+            df = pd.read_csv(filepath)
+            harelix = df[df["source"].str.contains("Harelix", case=False, na=False)]
+            for _, row in harelix.iterrows():
+                text = str(row["text"]).strip()
+                if not text:
+                    continue
+                is_attack = int(row["label"])
+                records.append(Record(
+                    id=self._make_id("harelix", int(row["id"]), text),
+                    text=text,
+                    label_binary=is_attack,
+                    label_category="direct_injection" if is_attack else "benign",
+                    source="harelix/mixed-techniques-2024",
+                    metadata={"original_source": row["source"]},
+                ))
+        log.info(f"  Harelix (via ahsanayub): {len(records)} records")
         return records
 
 
@@ -122,17 +139,20 @@ class SPMLLoader(BaseLoader):
         ds = load_dataset("reshabhs/SPML_Chatbot_Prompt_Injection", split="train")
         records = []
         for i, row in enumerate(ds):
-            is_attack = int(row["label"])
-            # SPML includes system prompts — store as context
-            system_prompt = row.get("system_prompt", None)
+            text = row.get("User Prompt")
+            if not text or not str(text).strip():
+                continue
+            text = str(text)
+            is_attack = int(row["Prompt injection"])
+            system_prompt = row.get("System Prompt", None)
             records.append(Record(
-                id=self._make_id("spml", i, row["prompt"]),
-                text=row["prompt"],
+                id=self._make_id("spml", i, text),
+                text=text,
                 label_binary=is_attack,
                 label_category="direct_injection" if is_attack else "benign",
                 source="spml/chatbot-prompt-injection",
                 context=system_prompt,
-                metadata={"original_label": row["label"]},
+                metadata={"original_label": row["Prompt injection"]},
             ))
         log.info(f"  SPML: {len(records)} records")
         return records
@@ -169,7 +189,7 @@ class MultilingualLoader(BaseLoader):
         ds = load_dataset("yanismiraoui/prompt_injections", split="train")
         records = []
         for i, row in enumerate(ds):
-            text = row["text"]
+            text = row["prompt_injections"]
             # Detect language heuristically (could use langdetect for production)
             lang = self._detect_lang(text)
             records.append(Record(
@@ -216,11 +236,14 @@ class JailbreakBenchLoader(BaseLoader):
 
     def load(self) -> list[Record]:
         from datasets import load_dataset
-        ds = load_dataset("JailbreakBench/JBB-Behaviors", "behaviors", split="train")
         records = []
-        for i, row in enumerate(ds):
-            # Harmful behavior — labeled BENIGN because it's a behavior description,
-            # not an injection technique. Used as a false-positive stress test.
+
+        # Harmful goals — labeled BENIGN because these are behavior descriptions,
+        # not injection techniques. Used as a false-positive stress test.
+        ds_harmful = load_dataset(
+            "JailbreakBench/JBB-Behaviors", "behaviors", split="harmful"
+        )
+        for i, row in enumerate(ds_harmful):
             records.append(Record(
                 id=self._make_id("jbb_harmful_topic", i, row["Goal"]),
                 text=row["Goal"],
@@ -233,17 +256,59 @@ class JailbreakBenchLoader(BaseLoader):
                     "note": "Sensitive topic but NOT an injection. For FP evaluation.",
                 },
             ))
-            # Paired benign behavior
-            if "BenignGoal" in row and row["BenignGoal"]:
-                records.append(Record(
-                    id=self._make_id("jbb_benign", i, row["BenignGoal"]),
-                    text=row["BenignGoal"],
-                    label_binary=0,
-                    label_category="benign",
-                    source="jailbreakbench/jbb-behaviors",
-                    metadata={"behavior": "benign_paired"},
-                ))
+
+        # Paired benign goals (separate split)
+        ds_benign = load_dataset(
+            "JailbreakBench/JBB-Behaviors", "behaviors", split="benign"
+        )
+        for i, row in enumerate(ds_benign):
+            records.append(Record(
+                id=self._make_id("jbb_benign", i, row["Goal"]),
+                text=row["Goal"],
+                label_binary=0,
+                label_category="benign",
+                source="jailbreakbench/jbb-behaviors",
+                metadata={"behavior": "benign_paired"},
+            ))
+
         log.info(f"  JailbreakBench: {len(records)} records (all benign — for FP evaluation)")
+        return records
+
+
+class WildJailbreakLoader(BaseLoader):
+    """Load TrustAIRLab/in-the-wild-jailbreak-prompts.
+
+    Real jailbreak techniques collected from Reddit, Discord, and jailbreak
+    websites. All 1,405 prompts are confirmed jailbreaks (DAN, persona switching,
+    role-play attacks, etc.).
+    """
+    name = "wild_jailbreak"
+
+    def load(self) -> list[Record]:
+        from datasets import load_dataset
+        ds = load_dataset(
+            "TrustAIRLab/in-the-wild-jailbreak-prompts",
+            "jailbreak_2023_12_25",
+            split="train",
+        )
+        records = []
+        for i, row in enumerate(ds):
+            text = row["prompt"]
+            if not text or not str(text).strip():
+                continue
+            text = str(text)
+            records.append(Record(
+                id=self._make_id("wild_jailbreak", i, text),
+                text=text,
+                label_binary=1,
+                label_category="jailbreak",
+                source="trustailab/in-the-wild-jailbreak-prompts",
+                metadata={
+                    "platform": row.get("platform", ""),
+                    "jailbreak_source": row.get("source", ""),
+                },
+            ))
+        log.info(f"  Wild Jailbreak Prompts: {len(records)} records")
         return records
 
 
@@ -422,18 +487,24 @@ class InjecAgentLoader(BaseLoader):
 class DatasetPipeline:
     """Main pipeline: load → deduplicate → balance → split → export."""
 
-    def __init__(self, injecagent_path: str = "./InjecAgent", benign_sample_size: int = 5000):
+    def __init__(
+        self,
+        injecagent_path: str = "./InjecAgent",
+        ahsanayub_path: str = "./data/raw/ahsanayub-malicious-prompts",
+        benign_sample_size: int = 5000,
+    ):
         self.loaders = [
             # --- Always available (local) ---
             InjecAgentLoader(injecagent_path),
 
             # --- HuggingFace datasets (require network) ---
             DeepsetLoader(),
-            HarelixLoader(),
+            HarelixLoader(ahsanayub_path),
             SPMLLoader(),
             SafeGuardLoader(),
             MultilingualLoader(),
             JailbreakBenchLoader(),
+            WildJailbreakLoader(),
             JailbreakClassificationLoader(),
             BenignPromptsLoader(max_samples=benign_sample_size),
         ]
@@ -630,6 +701,10 @@ Examples:
     )
     parser.add_argument("--output", default="./data/unified", help="Output directory")
     parser.add_argument("--injecagent", default="./InjecAgent", help="Path to InjecAgent repo")
+    parser.add_argument(
+        "--ahsanayub", default="./data/raw/ahsanayub-malicious-prompts",
+        help="Path to ahsanayub/malicious-prompts clone (contains Harelix rows)",
+    )
     parser.add_argument("--skip-hf", action="store_true", help="Skip HuggingFace datasets")
     parser.add_argument("--skip", nargs="*", default=[], help="Source names to skip")
     parser.add_argument("--benign-samples", type=int, default=5000, help="Max benign samples")
@@ -637,6 +712,7 @@ Examples:
 
     pipeline = DatasetPipeline(
         injecagent_path=args.injecagent,
+        ahsanayub_path=args.ahsanayub,
         benign_sample_size=args.benign_samples,
     )
     pipeline.run(
