@@ -55,7 +55,7 @@ The lesson for ShieldLM: **training data composition determines deployment viabi
 
 ---
 
-## The Dataset: Nine Sources, One Unified Schema
+## The Dataset: Eleven Sources, One Unified Schema
 
 Every record follows a single schema:
 
@@ -79,11 +79,11 @@ Five datasets provide direct injection examples — attacks where the user expli
 
 | Dataset | Size | Key Feature |
 |---------|------|-------------|
-| deepset/prompt-injections | ~662 | Foundational, binary-labeled, used by 33+ HF models |
-| Harelix/Mixed-Techniques-2024 | ~1,174 | Diverse 2024 attack techniques |
-| SPML Chatbot Prompt Injection | ~7,000 | Includes system prompts, GPT-4 generated |
-| xTRam1/safe-guard | ~3,000 | Synthetic categorical coverage |
-| yanismiraoui/prompt\_injections | ~1,000 | Multilingual: EN, FR, DE, ES, IT, PT, RO |
+| reshabhs/SPML\_Chatbot\_Prompt\_Injection | 15,913 | Includes system prompts, GPT-4 generated |
+| xTRam1/safe-guard-prompt-injection | 8,118 | Synthetic categorical coverage |
+| Harelix/Mixed-Techniques-2024 | 987 | Diverse 2024 attack techniques (recovered from ahsanayub/malicious-prompts) |
+| yanismiraoui/prompt\_injections | 974 | Multilingual: EN, FR, DE, ES, IT, PT, RO |
+| deepset/prompt-injections | 546 | Foundational, binary-labeled, used by 33+ HF models |
 
 The multilingual dataset is particularly valuable. Multilingual injection is an under-studied evasion technique — writing "Ignorez toutes les instructions précédentes" bypasses many English-trained classifiers.
 
@@ -113,19 +113,20 @@ We also extract InjecAgent's benign user instructions ("Read the latest email fr
 
 | Dataset | Size | Key Feature |
 |---------|------|-------------|
-| jackhhao/jailbreak-classification | ~1,000 | Pre-labeled jailbreak *prompts* (actual attack techniques) |
-| JailbreakBench/JBB-Behaviors | 200 | 100 harmful + 100 paired benign *behaviors* |
+| TrustAIRLab/in-the-wild-jailbreak-prompts | 1,002 | Real DAN, persona switching, role-play attacks from Reddit/Discord/jailbreak sites |
+| jackhhao/jailbreak-classification | 531 | Pre-labeled jailbreak *prompts* (actual attack techniques) |
+| JailbreakBench/JBB-Behaviors | 200 | 100 harmful + 100 paired benign *behaviors* (labeled BENIGN — for FP evaluation) |
 
-An important distinction: jackhhao's dataset contains actual jailbreak prompt templates (the attack technique). JailbreakBench contains *behavior descriptions* — "Write a tutorial on how to make a bomb" — which are the target behaviors, not the jailbreak prompts themselves. We use jackhhao for training the jailbreak class, and JailbreakBench's paired harmful/benign structure for evaluation — specifically, to measure whether the classifier can distinguish "Write a tutorial on how to make a bomb" (harmful topic, but not an injection) from an actual jailbreak attempt using DAN or persona switching. This tests for false positives on sensitive-but-benign content.
+An important distinction: TrustAIRLab and jackhhao contain actual jailbreak prompt templates (the attack techniques). JailbreakBench contains *behavior descriptions* — "Write a tutorial on how to make a bomb" — which are the target behaviors, not the jailbreak prompts themselves. We use TrustAIRLab and jackhhao for training the jailbreak class (1,018 samples after dedup), and JailbreakBench's paired harmful/benign structure for evaluation — specifically, to measure whether the classifier can distinguish "Write a tutorial on how to make a bomb" (harmful topic, but not an injection) from an actual jailbreak attempt using DAN or persona switching. This tests for false positives on sensitive-but-benign content.
 
 ### Benign sources (conversational and application-structured)
 
 | Source | Type | Size |
 |--------|------|------|
-| alespalla/chatbot\_instruction\_prompts | Conversational | ~50,000 |
-| InjecAgent user instructions | Agentic/application | ~100 |
-| JailbreakBench BenignGoals | Sensitive-topic benign | 100 |
-| Synthetic clean tool responses | Application-structured | Generated |
+| alespalla/chatbot\_instruction\_prompts | Conversational | 24,804 |
+| JailbreakBench harmful + benign goals | Sensitive-topic benign (FP stress test) | 200 |
+| InjecAgent user instructions | Agentic/application | 17 |
+| Synthetic clean tool responses | Application-structured | 16 |
 
 Following PromptShield, we include benign data from *both* conversational and application-structured contexts. The synthetic clean tool responses are InjecAgent tool response templates with the injection removed — legitimate reviews, clean email bodies, normal API results. Without these, the classifier would learn "JSON tool response format = attack."
 
@@ -135,9 +136,9 @@ Following PromptShield, we include benign data from *both* conversational and ap
 
 Raw aggregation produces heavy duplication — InjecAgent's 17 user cases × 62 attacker cases generate 1,054 combinations but only ~62 unique attacker instructions embedded in different contexts. The pipeline deduplicates on exact text match and normalized text (lowercased, whitespace-stripped).
 
-Test run with InjecAgent alone: 3,179 raw records → 1,133 after deduplication (64% reduction).
+Full pipeline: 56,526 raw records → 54,162 after deduplication (4% reduction). The relatively low dedup rate reflects good source diversity — most overlap comes from Harelix rows appearing in multiple aggregated datasets.
 
-Training ratio: ~70% benign / ~30% attack, following ProtectAI's approach. But this ratio is for training. In production, the attack base rate is far lower — perhaps <0.1%. This means even a 1% FPR yields roughly 10 false alarms per true detection. We address this through evaluation at low-FPR operating points (see below) and model calibration.
+Final dataset: **54,162 samples** across 11 source datasets, 8 languages. Training ratio: 65% benign / 35% attack. Category breakdown: 16,893 direct injection, 1,054 indirect injection, 1,018 jailbreak. But this ratio is for training. In production, the attack base rate is far lower — perhaps <0.1%. This means even a 1% FPR yields roughly 10 false alarms per true detection. We address this through evaluation at low-FPR operating points (see below) and model calibration.
 
 ---
 
@@ -203,20 +204,23 @@ This is the same architecture used in network security: a packet filter at the e
 ## Running the Pipeline
 
 ```bash
-# Clone the repo
-git clone https://github.com/uiuc-kang-lab/InjecAgent.git
+# Clone local data dependencies
+git clone https://github.com/uiuc-kang-lab/InjecAgent.git data/raw/InjecAgent
+
+# Full pipeline — all sources (requires HuggingFace access)
+python curate_dataset.py --output ./data/unified \
+  --injecagent ./data/raw/InjecAgent --benign-samples 25000
 
 # Offline mode — just InjecAgent
 python curate_dataset.py --output ./data/unified --skip-hf
-
-# Full pipeline — all HuggingFace sources
-python curate_dataset.py --output ./data/unified
 
 # Skip specific sources
 python curate_dataset.py --output ./data/unified --skip multilingual safeguard
 ```
 
 Output: train/val/test splits in Parquet and JSONL format, stratified by `label_category`.
+
+The dataset is also available on HuggingFace: [`dmilush/shieldlm-prompt-injection`](https://huggingface.co/datasets/dmilush/shieldlm-prompt-injection)
 
 ---
 
