@@ -1,0 +1,8 @@
+# Dataset curation dependencies
+datasets>=2.16.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+pyyaml>=6.0
+tqdm>=4.65.0
+pyarrow>=14.0.0
+langdetect>=1.0.9

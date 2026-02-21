@@ -1,0 +1,48 @@
+# Data (large, generated)
+data/
+models/
+InjecAgent/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+*.key
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Training artifacts
+wandb/
+runs/
+*.parquet
+*.jsonl
+
+# Tool caches
+.ruff_cache/
+.pytest_cache/
+
+# Logs
+*.log

@@ -1,0 +1,276 @@
+# ShieldLM Attack Taxonomy
+# Unified classification schema for prompt injection and jailbreak detection
+# Author: Dimiter Milushev
+# Version: 1.0
+
+# =============================================================================
+# LABEL SCHEMA
+# =============================================================================
+# We use a hierarchical label scheme:
+#   Level 1 (binary):    BENIGN | ATTACK
+#   Level 2 (category):  benign | direct_injection | indirect_injection | jailbreak
+#   Level 3 (intent):    fine-grained attack intent (see below)
+#
+# Models can be trained at any level. Level 1 is the production classifier.
+# Level 2 enables richer analysis. Level 3 is for research.
+
+labels:
+  level_1:
+    - BENIGN
+    - ATTACK
+
+  level_2:
+    - benign                # Normal user prompts, instructions, questions
+    - direct_injection      # User directly tries to override system prompt
+    - indirect_injection    # Malicious content embedded in external data (tools, docs, emails)
+    - jailbreak             # User tries to bypass safety alignment / ethical guardrails
+
+  level_3:
+    direct_injection:
+      # Task-hijacking attacks: override the LLM's intended task
+      - goal_hijacking           # "Ignore previous instructions and do X"
+      - prompt_leaking           # "Repeat your system prompt"
+      - instruction_override     # Direct command to override rules
+      - context_manipulation     # Reframing context to change agent behavior
+
+    indirect_injection:
+      # Attacks embedded in external content the LLM retrieves
+      - data_exfiltration        # Steal user data via tool responses
+      - financial_harm           # Unauthorized transactions
+      - physical_harm            # Manipulate IoT / physical systems
+      - data_security            # Delete/move/expose files
+      - privilege_escalation     # Gain unauthorized access
+      - social_engineering       # Manipulate agent to contact others
+
+    jailbreak:
+      # Bypass safety alignment to produce harmful content
+      - role_play_injection      # "You are now DAN..." / persona switching
+      - fake_completion          # Pretending the model already agreed
+      - ethical_bypass           # Bypass safety/ethical guidelines
+      - harmful_content          # Generate violent/illegal content
+      - illegal_activity         # Instructions for illegal acts
+      - privacy_violation        # Extract PII or private info
+      - deception                # Generate misinformation
+
+# =============================================================================
+# DATA SOURCES
+# =============================================================================
+# Each source is mapped to our schema with specific extraction logic
+
+sources:
+  # --- PROMPT INJECTION DATASETS ---
+
+  deepset_prompt_injections:
+    name: "deepset/prompt-injections"
+    type: huggingface
+    hub_id: "deepset/prompt-injections"
+    split: "train"
+    size: ~662
+    license: "Apache-2.0"
+    mapping:
+      text_field: "text"
+      label_field: "label"
+      label_map:
+        0: BENIGN
+        1: ATTACK
+    level_2_default: "direct_injection"  # mostly direct injection examples
+    notes: "Small but foundational dataset. Used by 33+ models on HF."
+
+  harelix_mixed_techniques:
+    name: "Harelix/Prompt-Injection-Mixed-Techniques-2024"
+    type: huggingface
+    hub_id: "Harelix/Prompt-Injection-Mixed-Techniques-2024"
+    split: "train"
+    size: ~1174
+    license: "Apache-2.0"
+    mapping:
+      text_field: "text"
+      label_field: "label"
+      label_map:
+        0: BENIGN
+        1: ATTACK
+    level_2_default: "direct_injection"
+    notes: "2024 dataset with mixed injection techniques. Good diversity."
+
+  spml_chatbot:
+    name: "reshabhs/SPML_Chatbot_Prompt_Injection"
+    type: huggingface
+    hub_id: "reshabhs/SPML_Chatbot_Prompt_Injection"
+    split: "train"
+    size: ~7000
+    license: "CC-BY-4.0"
+    mapping:
+      text_field: "prompt"
+      label_field: "label"
+      label_map:
+        0: BENIGN
+        1: ATTACK
+    level_2_default: "direct_injection"
+    notes: "Includes system prompts. Rich chatbot-specific scenarios. GPT-4 generated attacks."
+
+  safeguard_prompt_injection:
+    name: "xTRam1/safe-guard-prompt-injection"
+    type: huggingface
+    hub_id: "xTRam1/safe-guard-prompt-injection"
+    split: "train"
+    size: ~3000
+    license: "Apache-2.0"
+    mapping:
+      text_field: "text"
+      label_field: "label"
+    level_2_default: "direct_injection"
+    notes: "Synthetic dataset using categorical tree structure. Good coverage of attack categories."
+
+  multilingual_injections:
+    name: "yanismiraoui/prompt_injections"
+    type: huggingface
+    hub_id: "yanismiraoui/prompt_injections"
+    split: "train"
+    size: ~1000
+    license: "Apache-2.0"
+    mapping:
+      text_field: "text"
+      label_field: null  # All entries are injections
+    level_2_default: "direct_injection"
+    notes: "Multilingual (EN, FR, DE, ES, IT, PT, RO). All attack examples - no benign."
+
+  # --- INDIRECT PROMPT INJECTION ---
+
+  injecagent:
+    name: "InjecAgent (UIUC)"
+    type: github
+    repo: "https://github.com/uiuc-kang-lab/InjecAgent"
+    size: 1054
+    license: "MIT"
+    mapping:
+      text_field: "Tool Response"     # The poisoned tool response
+      label_field: "Attack Type"
+      instruction_field: "Attacker Instruction"
+      user_instruction_field: "User Instruction"
+    level_2_default: "indirect_injection"
+    notes: >
+      The key dataset for indirect/agentic injection. Contains tool responses
+      with embedded malicious instructions. Both base and enhanced (with hacking prompt) settings.
+
+  # --- JAILBREAK DATASETS ---
+
+  jailbreakbench:
+    name: "JailbreakBench/JBB-Behaviors"
+    type: huggingface
+    hub_id: "JailbreakBench/JBB-Behaviors"
+    split: "train"
+    size: ~200
+    license: "MIT"
+    mapping:
+      text_field: "Goal"
+      benign_field: "BenignGoal"  # Paired benign examples!
+    level_2_default: "jailbreak"
+    notes: "NeurIPS 2024. 100 misuse + 100 benign behaviors. Gold standard for jailbreak eval."
+
+  jailbreak_classification:
+    name: "jackhhao/jailbreak-classification"
+    type: huggingface
+    hub_id: "jackhhao/jailbreak-classification"
+    split: "train"
+    size: ~1000
+    license: "MIT"
+    mapping:
+      text_field: "prompt"
+      label_field: "type"
+      label_map:
+        benign: BENIGN
+        jailbreak: ATTACK
+    level_2_default: "jailbreak"
+    notes: "Pre-labeled jailbreak vs benign classification dataset."
+
+  # --- BENIGN / NEGATIVE EXAMPLES ---
+
+  chatbot_instruction_prompts:
+    name: "alespalla/chatbot_instruction_prompts"
+    type: huggingface
+    hub_id: "alespalla/chatbot_instruction_prompts"
+    split: "train"
+    size: ~50000
+    license: "Apache-2.0"
+    mapping:
+      text_field: "prompt"
+      label_field: null  # All benign
+    level_2_default: "benign"
+    notes: "Large source of benign instruction prompts. Used by ProtectAI for negative examples."
+
+  grok_harmless:
+    name: "HuggingFaceH4/grok-conversation-harmless"
+    type: huggingface
+    hub_id: "HuggingFaceH4/grok-conversation-harmless"
+    split: "train"
+    size: ~30000
+    license: "Apache-2.0"
+    mapping:
+      text_field: "prompt"
+      label_field: null  # All benign
+    level_2_default: "benign"
+    notes: "Harmless conversations. Good source of realistic benign prompts."
+
+# =============================================================================
+# UNIFIED SCHEMA
+# =============================================================================
+# Every record in the final dataset has these fields:
+
+unified_schema:
+  fields:
+    - name: id
+      type: string
+      description: "Unique identifier: {source}_{index}"
+    - name: text
+      type: string
+      description: "The prompt/content to classify"
+    - name: label_binary
+      type: int
+      description: "0 = BENIGN, 1 = ATTACK"
+    - name: label_category
+      type: string
+      description: "One of: benign, direct_injection, indirect_injection, jailbreak"
+    - name: label_intent
+      type: string
+      description: "Fine-grained intent (nullable for benign)"
+    - name: source
+      type: string
+      description: "Dataset source identifier"
+    - name: language
+      type: string
+      description: "ISO 639-1 language code (default: en)"
+    - name: context
+      type: string
+      description: "Optional context (system prompt, user instruction for indirect)"
+    - name: metadata
+      type: dict
+      description: "Source-specific metadata (attack type, tool names, etc.)"
+
+# =============================================================================
+# DATASET SPLITS
+# =============================================================================
+splits:
+  train: 0.70
+  validation: 0.15
+  test: 0.15
+  stratify_by: "label_category"
+  seed: 42
+  notes: >
+    Stratified split ensures proportional representation of each attack category.
+    Test set is held out and never used during development.
+    Consider also creating an adversarial test set with paraphrased attacks.
+
+# =============================================================================
+# TARGET CLASS DISTRIBUTION
+# =============================================================================
+target_distribution:
+  notes: >
+    Following ProtectAI's approach: ~30% attacks, ~70% benign.
+    This reflects realistic deployment where most inputs are benign.
+    Oversample minority attack categories if needed.
+  benign: 0.70
+  attack: 0.30
+  within_attack:
+    direct_injection: 0.50
+    indirect_injection: 0.25
+    jailbreak: 0.25

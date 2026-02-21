@@ -1,0 +1,40 @@
+model:
+  name: "microsoft/deberta-v3-base"
+  num_labels: 2                        # Binary: BENIGN vs ATTACK
+  max_length: 512
+  problem_type: "single_label_classification"
+
+training:
+  epochs: 5
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  lr_scheduler: "cosine"
+  fp16: true
+
+  # 2x RTX 3090
+  per_device_train_batch_size: 32
+  per_device_eval_batch_size: 64
+  dataloader_num_workers: 4
+
+  # Evaluation
+  evaluation_strategy: "steps"
+  eval_steps: 200
+  save_strategy: "steps"
+  save_steps: 200
+  load_best_model_at_end: true
+  metric_for_best_model: "tpr_at_fpr_01"  # TPR at 1% FPR
+  greater_is_better: true
+
+  # Logging
+  logging_steps: 50
+  report_to: "none"
+
+data:
+  train_file: "data/unified/train.parquet"
+  val_file: "data/unified/val.parquet"
+  text_column: "text"
+  label_column: "label_binary"
+
+output:
+  dir: "models/deberta-v3-base-shieldlm"
