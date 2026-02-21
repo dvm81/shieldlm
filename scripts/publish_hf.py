@@ -7,8 +7,8 @@ from datasets import Dataset, DatasetDict
 from huggingface_hub import HfApi
 
 
-def publish_dataset(data_dir: str, repo_id: str):
-    """Upload dataset splits to HuggingFace."""
+def publish_dataset(data_dir: str, repo_id: str, card_path: str = None):
+    """Upload dataset splits and card to HuggingFace."""
     print(f"Loading dataset from {data_dir}...")
     train = Dataset.from_parquet(f"{data_dir}/train.parquet")
     val = Dataset.from_parquet(f"{data_dir}/val.parquet")
@@ -18,6 +18,18 @@ def publish_dataset(data_dir: str, repo_id: str):
 
     print(f"Uploading to {repo_id}...")
     ds.push_to_hub(repo_id, private=False)
+
+    # Upload dataset card (README.md) if provided
+    if card_path:
+        api = HfApi()
+        api.upload_file(
+            path_or_fileobj=card_path,
+            path_in_repo="README.md",
+            repo_id=repo_id,
+            repo_type="dataset",
+        )
+        print(f"Dataset card uploaded from {card_path}")
+
     print(f"Dataset published: https://huggingface.co/datasets/{repo_id}")
 
 
@@ -40,6 +52,7 @@ def main():
     ds_parser = sub.add_parser("dataset", help="Upload dataset")
     ds_parser.add_argument("--data-dir", default="./data/unified")
     ds_parser.add_argument("--repo-id", default="dmilush/shieldlm-prompt-injection")
+    ds_parser.add_argument("--card", default="./hf_cards/dataset_card.md", help="Dataset card path")
 
     model_parser = sub.add_parser("model", help="Upload model")
     model_parser.add_argument("--model-dir", default="./models/deberta-v3-base-shieldlm")
@@ -48,7 +61,7 @@ def main():
     args = parser.parse_args()
 
     if args.command == "dataset":
-        publish_dataset(args.data_dir, args.repo_id)
+        publish_dataset(args.data_dir, args.repo_id, args.card)
     elif args.command == "model":
         publish_model(args.model_dir, args.repo_id)
 
