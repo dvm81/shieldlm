@@ -37,24 +37,31 @@ Input classification sits at the front of this stack: <10ms, catches the obvious
 
 ### 2.2 The 2025 Defense Landscape
 
-| Approach | Type | Speed | Representative Work | Open Source | Indirect PI Coverage |
-|----------|------|-------|---------------------|-------------|---------------------|
-| Input classifier | Detection | ~10ms | ProtectAI v2, PromptGuard 2 | Yes | Limited |
-| Alignment training | Model-level | +0ms | SecAlign, Meta SecAlign | Yes | Yes |
-| CoT auditing | Detection | ~200ms | AlignmentCheck (LlamaFirewall) | Yes | Yes |
-| System enforcement | Architectural | ~100ms | CaMeL, MELON | Yes | Yes (by design) |
-| LLM-as-guard | Detection | ~500ms+ | PromptArmor (GPT-4o) | No | Yes |
-| Layered guardrail | Multi-layer | Varies | LlamaFirewall | Yes | Yes |
-| **ShieldLM** | **Detection** | **~17ms** | **DeBERTa-v3-base** | **Yes** | **Yes** |
+**Input classifier** — Detection, ~10ms — ProtectAI v2, PromptGuard 2 (open source, limited indirect PI coverage)
+
+**Alignment training** — Model-level, +0ms — SecAlign, Meta SecAlign (open source, full indirect PI coverage)
+
+**CoT auditing** — Detection, ~200ms — AlignmentCheck / LlamaFirewall (open source, full indirect PI coverage)
+
+**System enforcement** — Architectural, ~100ms — CaMeL, MELON (open source, full indirect PI coverage by design)
+
+**LLM-as-guard** — Detection, ~500ms+ — PromptArmor / GPT-4o (closed source, full indirect PI coverage)
+
+**Layered guardrail** — Multi-layer, varies — LlamaFirewall (open source, full indirect PI coverage)
+
+**ShieldLM** — Detection, ~17ms — DeBERTa-v3-base (open source, full indirect PI coverage)
 
 ### 2.3 The Gap
 
-| Detector | Direct Inj. | Indirect Inj. | Jailbreak | Trained on App-Structured Benign | Low-FPR Eval |
-|----------|:-----------:|:--------------:|:---------:|:--------------------------------:|:------------:|
-| ProtectAI v2 | Yes | No | No | No | No |
-| PromptGuard 2 | Yes | Limited | Yes | Unknown | No |
-| PromptShield | Yes | Yes | Unknown | Yes | Yes |
-| **ShieldLM** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** |
+Existing detectors leave critical gaps in coverage:
+
+**ProtectAI v2** — Direct injection: Yes | Indirect injection: No | Jailbreak: No | App-structured benign training: No | Low-FPR eval: No
+
+**PromptGuard 2** — Direct injection: Yes | Indirect injection: Limited | Jailbreak: Yes | App-structured benign training: Unknown | Low-FPR eval: No
+
+**PromptShield** — Direct injection: Yes | Indirect injection: Yes | Jailbreak: Unknown | App-structured benign training: Yes | Low-FPR eval: Yes
+
+**ShieldLM** — Direct injection: Yes | Indirect injection: Yes | Jailbreak: Yes | App-structured benign training: Yes | Low-FPR eval: Yes
 
 Existing input classifiers each leave critical gaps. ProtectAI v2 was not trained on indirect injection or jailbreak data and scores 79.0% on our test set. PromptGuard 2 handles jailbreaks but struggles with tool-embedded injections — at 0.1% FPR, PromptShield's benchmark measured it at just 9.4% TPR (Jacob et al., 2025). ShieldLM covers all three attack categories and reaches 96.1% on the same test set, evaluated at the low-FPR operating points that production deployments require.
 
@@ -72,11 +79,11 @@ Existing input classifiers each leave critical gaps. ProtectAI v2 was not traine
 
 ### 3.2 Label Hierarchy
 
-| Level | Field | Values | Use Case | Example Query |
-|-------|-------|--------|----------|---------------|
-| 1 (Binary) | `label_binary` | BENIGN \| ATTACK | Production: block/allow | "Is this safe to process?" |
-| 2 (Category) | `label_category` | benign, direct_injection, indirect_injection, jailbreak | Routing & analytics | "Which defense layer handles this?" |
-| 3 (Intent) | `label_intent` | goal_hijacking, data_exfiltration, financial_harm, ... (17 intents) | Research & red-teaming | "What did the attacker want?" |
+**Level 1 (Binary)** — Field: `label_binary` — Values: BENIGN | ATTACK — Use case: Production block/allow — *"Is this safe to process?"*
+
+**Level 2 (Category)** — Field: `label_category` — Values: benign, direct_injection, indirect_injection, jailbreak — Use case: Routing & analytics — *"Which defense layer handles this?"*
+
+**Level 3 (Intent)** — Field: `label_intent` — Values: goal_hijacking, data_exfiltration, financial_harm, ... (17 intents) — Use case: Research & red-teaming — *"What did the attacker want?"*
 
 Models can be trained at any level. Level 1 is the production default — a binary ATTACK/BENIGN decision with a calibrated confidence threshold. Levels 2 and 3 are available for routing, analytics, and research without retraining.
 
@@ -96,32 +103,40 @@ Five principles guided data curation, drawn from PromptShield's insights and our
 
 ### 4.2 Source Summary
 
-| Source | Category | Samples | Key Feature |
-|--------|----------|---------|-------------|
-| alespalla/chatbot_instruction_prompts | Benign (conversational) | 24,804 | Large-scale conversational negatives |
-| reshabhs/SPML_Chatbot_Prompt_Injection | Direct injection + benign | 15,913 | Includes system prompts, GPT-4 generated |
-| xTRam1/safe-guard-prompt-injection | Direct injection + benign | 8,118 | Synthetic categorical coverage |
-| InjecAgent (UIUC) | Indirect injection + benign | 1,054 | Tool-embedded attacks across 17 user tools |
-| TrustAIRLab/in-the-wild-jailbreak-prompts | Jailbreak | 1,002 | Real DAN, persona switching from Reddit/Discord |
-| Harelix/Mixed-Techniques-2024 | Direct injection + benign | 987 | Diverse 2024 attack techniques |
-| yanismiraoui/prompt_injections | Direct injection (multilingual) | 974 | 7 languages: EN, FR, DE, ES, IT, PT, RO |
-| deepset/prompt-injections | Direct injection + benign | 546 | Foundational, used by 33+ HF models |
-| jackhhao/jailbreak-classification | Jailbreak + benign | 531 | Pre-labeled jailbreak prompts |
-| JailbreakBench/JBB-Behaviors | Benign (FP stress test) | 200 | 100 harmful + 100 benign paired behaviors |
-| Synthetic clean tool responses | Benign (application-structured) | ~33 | InjecAgent templates with injection stripped |
+![Dataset Composition: 54,162 Samples from 11 Sources](assets/chart_dataset_composition.png)
+
+**alespalla/chatbot_instruction_prompts** — Benign (conversational), 24,804 samples — Large-scale conversational negatives
+
+**reshabhs/SPML_Chatbot_Prompt_Injection** — Direct injection + benign, 15,913 samples — Includes system prompts, GPT-4 generated
+
+**xTRam1/safe-guard-prompt-injection** — Direct injection + benign, 8,118 samples — Synthetic categorical coverage
+
+**InjecAgent (UIUC)** — Indirect injection + benign, 1,054 samples — Tool-embedded attacks across 17 user tools
+
+**TrustAIRLab/in-the-wild-jailbreak-prompts** — Jailbreak, 1,002 samples — Real DAN, persona switching from Reddit/Discord
+
+**Harelix/Mixed-Techniques-2024** — Direct injection + benign, 987 samples — Diverse 2024 attack techniques
+
+**yanismiraoui/prompt_injections** — Direct injection (multilingual), 974 samples — 7 languages: EN, FR, DE, ES, IT, PT, RO
+
+**deepset/prompt-injections** — Direct injection + benign, 546 samples — Foundational, used by 33+ HF models
+
+**jackhhao/jailbreak-classification** — Jailbreak + benign, 531 samples — Pre-labeled jailbreak prompts
+
+**JailbreakBench/JBB-Behaviors** — Benign (FP stress test), 200 samples — 100 harmful + 100 benign paired behaviors
+
+**Synthetic clean tool responses** — Benign (application-structured), ~33 samples — InjecAgent templates with injection stripped
 
 ### 4.3 Dataset Statistics
 
-| Metric | Value |
-|--------|-------|
-| Total samples | 54,162 |
-| Train / Val / Test | 37,913 / 8,124 / 8,125 (70/15/15) |
-| Benign / Attack | 65% / 35% |
-| Direct injection | 16,893 (31.2%) |
-| Indirect injection | 1,054 (1.9%) |
-| Jailbreak | 1,018 (1.9%) |
-| Languages | 8 (en, fr, es, it, de, pt, ro, ca) |
-| Dedup rate | 4% (56,526 raw → 54,162) |
+**Total samples:** 54,162
+**Train / Val / Test:** 37,913 / 8,124 / 8,125 (70/15/15)
+**Benign / Attack:** 65% / 35%
+**Direct injection:** 16,893 (31.2%)
+**Indirect injection:** 1,054 (1.9%)
+**Jailbreak:** 1,018 (1.9%)
+**Languages:** 8 (en, fr, es, it, de, pt, ro, ca)
+**Dedup rate:** 4% (56,526 raw → 54,162)
 
 The base rate problem matters here: in production, the attack rate is likely <0.1%. At that rate, even a 1% FPR yields roughly 10 false alarms for every true detection. A 0.1% FPR brings that ratio to ~1:1. This is why we evaluate at low-FPR operating points — it's the metric that determines whether a classifier is deployable, not AUC.
 
@@ -151,27 +166,23 @@ We deliberately do NOT extract the attacker instruction as a standalone record. 
 
 The production model uses the same architecture and parameter budget as PromptGuard 2 (86M parameters), but trained on a broader attack taxonomy that includes indirect injection and in-the-wild jailbreaks.
 
-| Setting | Value |
-|---------|-------|
-| Base model | microsoft/deberta-v3-base (86M params) |
-| Epochs | 5 |
-| Learning rate | 2e-5, cosine schedule, 10% warmup |
-| Effective batch size | 64 (16/device × 2 accum × 2 GPUs) |
-| Max sequence length | 512 tokens |
-| Precision | FP16 |
-| Model selection | Best TPR at 1% FPR on validation |
-| Hardware | 2× NVIDIA RTX 3090 |
+**Base model:** microsoft/deberta-v3-base (86M params)
+**Epochs:** 5
+**Learning rate:** 2e-5, cosine schedule, 10% warmup
+**Effective batch size:** 64 (16/device x 2 accum x 2 GPUs)
+**Max sequence length:** 512 tokens
+**Precision:** FP16
+**Model selection:** Best TPR at 1% FPR on validation
+**Hardware:** 2x NVIDIA RTX 3090
 
 ### 5.2 Calibrated Thresholds
 
 Pre-computed on the validation split. Pick the row matching your FPR budget — no manual tuning needed:
 
-| FPR Target | Threshold | TPR (val) |
-|------------|-----------|-----------|
-| 0.1% | 0.9998 | 95.2% |
-| 0.5% | 0.9695 | 98.1% |
-| 1.0% | 0.1239 | 98.8% |
-| 5.0% | 0.0024 | 99.6% |
+**0.1% FPR** — Threshold: 0.9998 — TPR: 95.2%
+**0.5% FPR** — Threshold: 0.9695 — TPR: 98.1%
+**1.0% FPR** — Threshold: 0.1239 — TPR: 98.8%
+**5.0% FPR** — Threshold: 0.0024 — TPR: 99.6%
 
 Thresholds are bundled as `calibrated_thresholds.json` in the model repository. The 0.1% FPR threshold (0.9998) is recommended for high-traffic production deployments where false alarms have real cost.
 
@@ -183,13 +194,13 @@ Thresholds are bundled as `calibrated_thresholds.json` in the model repository. 
 
 Evaluated on the held-out test set (n=8,125). Baseline: ProtectAI deberta-v3-base-prompt-injection-v2, the most deployed open-source prompt injection detector.
 
-| Metric | ShieldLM | ProtectAI v2 | Delta |
-|--------|----------|--------------|-------|
-| AUC | **0.9989** | 0.9892 | +0.010 |
-| TPR @ 0.1% FPR | **96.1%** | 79.0% | **+17.1pp** |
-| TPR @ 0.5% FPR | **97.9%** | 84.0% | +13.9pp |
-| TPR @ 1% FPR | **98.5%** | 89.6% | +8.9pp |
-| TPR @ 5% FPR | **99.5%** | 96.2% | +3.3pp |
+![Attack Detection Rate at Production FPR Thresholds](assets/chart_tpr_comparison.png)
+
+**AUC:** ShieldLM 0.9989 vs ProtectAI v2 0.9892 (+0.010)
+**TPR @ 0.1% FPR:** ShieldLM **96.1%** vs ProtectAI v2 79.0% (**+17.1pp**)
+**TPR @ 0.5% FPR:** ShieldLM **97.9%** vs ProtectAI v2 84.0% (+13.9pp)
+**TPR @ 1% FPR:** ShieldLM **98.5%** vs ProtectAI v2 89.6% (+8.9pp)
+**TPR @ 5% FPR:** ShieldLM **99.5%** vs ProtectAI v2 96.2% (+3.3pp)
 
 The AUC difference looks small (0.010), but low-FPR performance diverges dramatically. At 0.1% FPR — the threshold that matters for production — ProtectAI misses 21% of attacks while ShieldLM misses 3.9%. This confirms PromptShield's finding that AUC is a misleading metric for deployment decisions.
 
@@ -197,11 +208,11 @@ The AUC difference looks small (0.010), but low-FPR performance diverges dramati
 
 Performance by attack category at the 1% FPR operating point:
 
-| Category | ShieldLM TPR | ProtectAI v2 TPR | Delta | n |
-|----------|-------------|-----------------|-------|---|
-| Direct injection | 98.7% | 92.0% | +6.7pp | 2,534 |
-| Indirect injection | **100.0%** | 66.5% | **+33.5pp** | 158 |
-| Jailbreak | 93.5% | 72.5% | +21.0pp | 153 |
+![Detection Rate by Attack Category](assets/chart_per_category.png)
+
+**Direct injection:** ShieldLM 98.7% vs ProtectAI v2 92.0% (+6.7pp) — n=2,534
+**Indirect injection:** ShieldLM **100.0%** vs ProtectAI v2 66.5% (**+33.5pp**) — n=158
+**Jailbreak:** ShieldLM 93.5% vs ProtectAI v2 72.5% (+21.0pp) — n=153
 
 Indirect injection at 100% TPR validates training on InjecAgent's context-embedded data — ProtectAI, which was not trained on this pattern, catches only two-thirds. Jailbreak at 93.5% is the weakest category, which is expected: jailbreak techniques are the most diverse and rapidly evolving attack class (DAN, PAIR, GCG, persona switching).
 
@@ -215,11 +226,9 @@ FPR broken out by benign data type, at the 1% FPR operating point:
 
 ### 6.4 Latency
 
-| Metric | ShieldLM | ProtectAI v2 |
-|--------|----------|--------------|
-| Mean (GPU) | 17.2ms | 16.6ms |
-| P95 | 18.5ms | 17.8ms |
-| P99 | 19.1ms | 19.0ms |
+**Mean (GPU):** ShieldLM 17.2ms vs ProtectAI v2 16.6ms
+**P95:** ShieldLM 18.5ms vs ProtectAI v2 17.8ms
+**P99:** ShieldLM 19.1ms vs ProtectAI v2 19.0ms
 
 Comparable latency — same architecture, negligible difference. Both are dwarfed by LLM inference time (200–2000ms), confirming the value proposition of a classifier-based first layer.
 
@@ -229,19 +238,7 @@ Comparable latency — same architecture, negligible difference. Both are dwarfe
 
 The field has converged on **defense-in-depth**. ShieldLM is Layer 1:
 
-```
-Layer 1: Input classifier (ShieldLM, PromptGuard 2)     ~17ms
-         ↓ passes
-Layer 2: Prompt augmentation / delimiters                ~0ms
-         ↓ passes
-Layer 3: Alignment-hardened model (SecAlign, IH)         ~0ms additional
-         ↓ generates
-Layer 4: CoT auditor (AlignmentCheck)                    ~200ms
-         ↓ passes
-Layer 5: System-level enforcement (CaMeL, MELON)         ~100ms
-         ↓ verified
-Layer 6: Output verification                             ~50ms
-```
+![Defense-in-Depth: ShieldLM as Layer 1](assets/chart_defense_stack.png)
 
 ShieldLM catches the obvious injections before they reach the LLM. It doesn't need to be perfect — it needs to be fast and cheap, with a predictable false positive rate. The more expensive layers handle what slips through.
 
