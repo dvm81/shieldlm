@@ -1,0 +1,50 @@
+{
+  "model": "models/deberta-v3-large-shieldlm",
+  "overall": {
+    "auc": 0.9896007083133621,
+    "tpr_at_fpr_001": 0.6105448154657294,
+    "threshold_at_fpr_001": 0.992502179145813,
+    "tpr_at_fpr_005": 0.9265377855887522,
+    "threshold_at_fpr_005": 0.9881950259208679,
+    "tpr_at_fpr_01": 0.9525483304042179,
+    "threshold_at_fpr_01": 0.30440675020217894,
+    "tpr_at_fpr_05": 0.9803163444639719,
+    "threshold_at_fpr_05": 0.015126561746001244,
+    "n_samples": 8125,
+    "n_attack": 2845,
+    "n_benign": 5280
+  },
+  "by_category": {
+    "direct_injection": {
+      "tpr": 0.9530386740331491,
+      "n": 2534
+    },
+    "indirect_injection": {
+      "tpr": 0.9936708860759493,
+      "n": 158
+    },
+    "jailbreak": {
+      "tpr": 0.9019607843137255,
+      "n": 153
+    }
+  },
+  "fpr_by_data_type": {
+    "conversational": {
+      "fpr": 0.004216073781291172,
+      "n": 3795
+    },
+    "application_structured": {
+      "fpr": 1.0,
+      "n": 1
+    },
+    "sensitive_topic": {
+      "fpr": 0.07407407407407407,
+      "n": 27
+    }
+  },
+  "latency": {
+    "mean_ms": 32.71872394041566,
+    "p95_ms": 39.58305835549254,
+    "p99_ms": 42.773383654639474
+  }
+}

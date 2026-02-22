@@ -1,3 +1,8 @@
+## Environment
+
+* **Conda env**: `shieldlm` — activate with `conda activate shieldlm` or use `/home/dimiter/miniconda3/envs/shieldlm/bin/python` directly
+* All training/inference commands must use this env (has accelerate, transformers, torch, etc.)
+
 ## Workflow Orchestration
 
 ### 1. Plan Mode Default
