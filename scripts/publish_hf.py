@@ -36,6 +36,7 @@ def publish_dataset(data_dir: str, repo_id: str, card_path: str = None):
 def publish_model(model_dir: str, repo_id: str, card_path: str = None):
     """Upload trained model to HuggingFace."""
     api = HfApi()
+    api.create_repo(repo_id, repo_type="model", exist_ok=True)
     print(f"Uploading model from {model_dir} to {repo_id}...")
     api.upload_folder(
         folder_path=model_dir,
