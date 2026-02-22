@@ -14,6 +14,7 @@ training:
 
   # 2x RTX 3090 — reduced batch size for 304M params
   per_device_train_batch_size: 16
+  gradient_accumulation_steps: 2    # effective batch = 16*2*2gpus = 64
   per_device_eval_batch_size: 32
   dataloader_num_workers: 4
 

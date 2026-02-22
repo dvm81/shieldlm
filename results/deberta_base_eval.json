@@ -1,0 +1,105 @@
+{
+  "model": "models/deberta-v3-base-shieldlm",
+  "overall": {
+    "auc": 0.99890893779624,
+    "tpr_at_fpr_001": 0.9606326889279437,
+    "threshold_at_fpr_001": 0.99946692943573,
+    "tpr_at_fpr_005": 0.9789103690685413,
+    "threshold_at_fpr_005": 0.9527973175048828,
+    "tpr_at_fpr_01": 0.9848857644991212,
+    "threshold_at_fpr_01": 0.09966348744928838,
+    "tpr_at_fpr_05": 0.9950790861159929,
+    "threshold_at_fpr_05": 0.0023536976194009182,
+    "n_samples": 8125,
+    "n_attack": 2845,
+    "n_benign": 5280
+  },
+  "by_category": {
+    "direct_injection": {
+      "tpr": 0.9869771112865036,
+      "n": 2534
+    },
+    "indirect_injection": {
+      "tpr": 1.0,
+      "n": 158
+    },
+    "jailbreak": {
+      "tpr": 0.934640522875817,
+      "n": 153
+    }
+  },
+  "fpr_by_data_type": {
+    "conversational": {
+      "fpr": 0.005797101449275362,
+      "n": 3795
+    },
+    "application_structured": {
+      "fpr": 1.0,
+      "n": 1
+    },
+    "sensitive_topic": {
+      "fpr": 0.3333333333333333,
+      "n": 27
+    }
+  },
+  "latency": {
+    "mean_ms": 17.221452470030272,
+    "p95_ms": 18.514579300153855,
+    "p99_ms": 19.146111959871664
+  },
+  "baselines": {
+    "protectai_v2": {
+      "model": "protectai/deberta-v3-base-prompt-injection-v2",
+      "overall": {
+        "auc": 0.9892161953453693,
+        "tpr_at_fpr_001": 0.7901581722319859,
+        "threshold_at_fpr_001": 0.9998891544342041,
+        "tpr_at_fpr_005": 0.8400702987697716,
+        "threshold_at_fpr_005": 0.9949166059494019,
+        "tpr_at_fpr_01": 0.8956063268892794,
+        "threshold_at_fpr_01": 0.42344960570335377,
+        "tpr_at_fpr_05": 0.9620386643233744,
+        "threshold_at_fpr_05": 1.240162873727968e-05,
+        "n_samples": 8125,
+        "n_attack": 2845,
+        "n_benign": 5280
+      },
+      "by_category": {
+        "direct_injection": {
+          "tpr": 0.920284135753749,
+          "n": 2534
+        },
+        "indirect_injection": {
+          "tpr": 0.6645569620253164,
+          "n": 158
+        },
+        "jailbreak": {
+          "tpr": 0.7254901960784313,
+          "n": 153
+        }
+      },
+      "fpr_by_data_type": {
+        "conversational": {
+          "fpr": 0.0005270092226613965,
+          "n": 3795
+        },
+        "application_structured": {
+          "fpr": 1.0,
+          "n": 1
+        },
+        "sensitive_topic": {
+          "fpr": 0.0,
+          "n": 27
+        }
+      },
+      "latency": {
+        "mean_ms": 16.572625239950867,
+        "p95_ms": 17.849088699995264,
+        "p99_ms": 18.99618139993436
+      }
+    },
+    "promptguard_86m": {
+      "error": "You are trying to access a gated repo.\nMake sure to have access to it at https://huggingface.co/meta-llama/Prompt-Guard-86M.\n403 Client Error. (Request ID: Root=1-699a4d41-389b2b0820b8bc8b793783b3;e99b1587-bdbd-4e8a-b080-9dddea7b65c8)\n\nCannot access gated repo for url https://huggingface.co/meta-llama/Prompt-Guard-86M/resolve/main/config.json.\nAccess to model meta-llama/Prompt-Guard-86M is restricted and you are not in the authorized list. Visit https://huggingface.co/meta-llama/Prompt-Guard-86M to ask for access."
+    }
+  }
+}

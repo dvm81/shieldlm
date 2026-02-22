@@ -86,7 +86,14 @@ def load_and_tokenize(config: dict, tokenizer):
 
 
 def setup_model_deberta(config: dict):
-    """Load DeBERTa model and tokenizer."""
+    """Load DeBERTa model and tokenizer.
+
+    DeBERTa-v3 uses a custom LayerNorm that stores weights in fp16,
+    which breaks AMP gradient unscaling. We cast all LayerNorm params
+    to fp32 so fp16 mixed-precision training works correctly.
+    """
+    import torch
+
     model_name = config["model"]["name"]
     log.info(f"Loading DeBERTa model: {model_name}")
 
@@ -96,6 +103,12 @@ def setup_model_deberta(config: dict):
         num_labels=config["model"]["num_labels"],
         problem_type=config["model"].get("problem_type", "single_label_classification"),
     )
+
+    # Fix DeBERTa-v3 fp16 instability: cast LayerNorm weights to fp32
+    for param in model.parameters():
+        if param.data.dtype == torch.float16:
+            param.data = param.data.to(torch.float32)
+
     return model, tokenizer
 
 
@@ -151,7 +164,8 @@ def build_training_args(config: dict) -> TrainingArguments:
         weight_decay=tc.get("weight_decay", 0.01),
         warmup_ratio=tc.get("warmup_ratio", 0.1),
         lr_scheduler_type=tc.get("lr_scheduler", "cosine"),
-        fp16=tc.get("fp16", True),
+        fp16=tc.get("fp16", False),
+        bf16=tc.get("bf16", False),
         per_device_train_batch_size=tc["per_device_train_batch_size"],
         per_device_eval_batch_size=tc.get("per_device_eval_batch_size", 64),
         dataloader_num_workers=tc.get("dataloader_num_workers", 4),

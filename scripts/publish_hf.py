@@ -33,7 +33,7 @@ def publish_dataset(data_dir: str, repo_id: str, card_path: str = None):
     print(f"Dataset published: https://huggingface.co/datasets/{repo_id}")
 
 
-def publish_model(model_dir: str, repo_id: str):
+def publish_model(model_dir: str, repo_id: str, card_path: str = None):
     """Upload trained model to HuggingFace."""
     api = HfApi()
     print(f"Uploading model from {model_dir} to {repo_id}...")
@@ -41,8 +41,19 @@ def publish_model(model_dir: str, repo_id: str):
         folder_path=model_dir,
         repo_id=repo_id,
         repo_type="model",
+        ignore_patterns=["checkpoint-*", "training_args.bin"],
     )
-    print(f"Model published: https://huggingface.co/models/{repo_id}")
+
+    if card_path:
+        api.upload_file(
+            path_or_fileobj=card_path,
+            path_in_repo="README.md",
+            repo_id=repo_id,
+            repo_type="model",
+        )
+        print(f"Model card uploaded from {card_path}")
+
+    print(f"Model published: https://huggingface.co/{repo_id}")
 
 
 def main():
@@ -57,13 +68,14 @@ def main():
     model_parser = sub.add_parser("model", help="Upload model")
     model_parser.add_argument("--model-dir", default="./models/deberta-v3-base-shieldlm")
     model_parser.add_argument("--repo-id", default="dmilush/shieldlm-deberta-base")
+    model_parser.add_argument("--card", default=None, help="Model card path")
 
     args = parser.parse_args()
 
     if args.command == "dataset":
         publish_dataset(args.data_dir, args.repo_id, args.card)
     elif args.command == "model":
-        publish_model(args.model_dir, args.repo_id)
+        publish_model(args.model_dir, args.repo_id, args.card)
 
 
 if __name__ == "__main__":
