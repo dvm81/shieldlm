@@ -2,6 +2,7 @@
 """Upload ShieldLM dataset and/or model to HuggingFace Hub."""
 
 import argparse
+import json
 
 from datasets import Dataset, DatasetDict
 from huggingface_hub import HfApi
@@ -13,6 +14,16 @@ def publish_dataset(data_dir: str, repo_id: str, card_path: str = None):
     train = Dataset.from_parquet(f"{data_dir}/train.parquet")
     val = Dataset.from_parquet(f"{data_dir}/val.parquet")
     test = Dataset.from_parquet(f"{data_dir}/test.parquet")
+
+    # Convert metadata dicts to JSON strings so the HF viewer can render them
+    def stringify_metadata(example):
+        if isinstance(example["metadata"], dict):
+            example["metadata"] = json.dumps(example["metadata"])
+        return example
+
+    train = train.map(stringify_metadata)
+    val = val.map(stringify_metadata)
+    test = test.map(stringify_metadata)
 
     ds = DatasetDict({"train": train, "validation": val, "test": test})
 
