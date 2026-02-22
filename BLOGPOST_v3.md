@@ -49,9 +49,14 @@ Input classification sits at the front of this stack: <10ms, catches the obvious
 
 ### 2.3 The Gap
 
-Current input classifiers have a critical blind spot. ProtectAI's model was not trained on indirect injection data, and its performance on tool-embedded injections is untested in its own documentation. PromptGuard 2 handles jailbreaks but struggles with subtle, tool-embedded injections. PromptShield (Jacob et al., 2025) showed that at the deployment-relevant operating point of 0.1% FPR, PromptGuard detected only 9.4% of attacks — essentially unusable in production.
+| Detector | Direct Inj. | Indirect Inj. | Jailbreak | Trained on App-Structured Benign | Low-FPR Eval |
+|----------|:-----------:|:--------------:|:---------:|:--------------------------------:|:------------:|
+| ProtectAI v2 | Yes | No | No | No | No |
+| PromptGuard 2 | Yes | Limited | Yes | Unknown | No |
+| PromptShield | Yes | Yes | Unknown | Yes | Yes |
+| **ShieldLM** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** |
 
-ShieldLM addresses both gaps: a unified attack taxonomy covering all three categories, and evaluation at low-FPR operating points that reflect production requirements.
+Existing input classifiers each leave critical gaps. ProtectAI v2 was not trained on indirect injection or jailbreak data and scores 79.0% on our test set. PromptGuard 2 handles jailbreaks but struggles with tool-embedded injections — at 0.1% FPR, PromptShield's benchmark measured it at just 9.4% TPR (Jacob et al., 2025). ShieldLM covers all three attack categories and reaches 96.1% on the same test set, evaluated at the low-FPR operating points that production deployments require.
 
 ---
 
